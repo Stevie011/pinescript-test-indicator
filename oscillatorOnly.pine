@@ -1,0 +1,124 @@
+
+
+// © ATHBuys
+
+//@version=5
+indicator("udemy project", overlay=false)
+
+//many plots have been commented out- oscillator style works if overlay=false
+
+//why doesn't stoch k crossunder work for values over 100?
+
+//why don't sell alerts show when atr is enabled?
+
+//how to keep oscillator in view and still draw arrows on chart
+
+
+//INPUTS
+
+//cci
+
+cciLen = input.int(20, minval=1, title="CCI Length")
+src = input(hlc3, title="CCI Source")
+cciBuyTrigger = input.int(-300, title="CCI buy level")
+cciSellTrigger = input.int(300, title="CCI sell level")
+
+//atr
+
+atrLen = input.int(14, title="ATR Length", minval=1)
+atrPivot = input.int(70, title="ATR pivot")
+atrSmoother = input.int(10, title="ATR smoother")
+
+//use atr or not
+useAtr = input.bool(false, title="use atr for alert")
+
+//stochs
+
+smoothK = input.int(3, "K", minval=1)
+smoothD = input.int(3, "D", minval=1)
+lengthRSI = input.int(14, "RSI Length", minval=1)
+lengthStoch = input.int(14, "stchRSI Stochastic Length", minval=1)
+stchRSIsrc = input(close, title="stchRSI RSI Source")
+stochsBuyTrigger = input.int(2, title="stochs buy level")
+stochsSellTrigger = input.int(100, title="stochs sell level")
+
+
+//**********CODE PART
+
+
+//*****************CCI code *******************
+
+cci = ta.cci(src, cciLen)
+plot(cci, title="CCI", color=color.rgb(57, 255, 20))
+
+//CCI strategy
+
+cciBuyCond = ta.crossover(cci, cciBuyTrigger)
+cciSellCond = ta.crossunder(cci, cciSellTrigger)
+
+plotshape(cciBuyCond ? 1: na, title="cci buy", style=shape.triangleup, size=size.small, location=location.bottom, color=color.rgb(103,173,92,75))
+plotshape(cciSellCond ? -1: na, title="cci sell", style=shape.triangledown, size=size.small, location=location.top, color=color.rgb(236,95,89,75))
+
+//*****************ATR code *******************
+
+//divided by 10 to make oscillators visible (scaling)
+atr = (ta.atr(atrLen)/atrSmoother)
+
+plot(atr, title = "ATR", linewidth=2, color=color.rgb(160,29,233))
+
+//************ ATR strat
+
+atrBuyCond = atr < atrPivot
+atrSellCond = atr > atrPivot
+//i've used these conds to change the color of the background
+
+//*****************stoch rsi code *******************
+
+rsi1 = ta.rsi(stchRSIsrc, lengthRSI)
+k = ta.sma(ta.stoch(rsi1, rsi1, rsi1, lengthStoch), smoothK)
+d = ta.sma(k, smoothD)
+kPlot = plot(k*2, "K", color=#2962FF)
+dPlot = plot(d*2, "D", color=#FF6D00)
+fill(kPlot,dPlot, color=color.rgb(255, 109, 0, 40))
+
+//******* stochs strat
+
+//NB --- need to figure out the mystery of this stochs thing- why the fuck doesn't the sell work if crossunder is set to more than 100?
+stochBuyCond = ta.crossover(k, stochsBuyTrigger)
+stochSellCond = ta.crossunder(k, stochsSellTrigger)
+
+plotshape(stochBuyCond ? 1 : na, title="stoch buy", style=shape.triangleup, size=size.small, location=location.bottom, color=color.rgb(56,97,246,75))
+plotshape(stochSellCond ? 1 : na, title="stoch sell", style=shape.triangledown, size=size.small, location=location.top, color=color.red)
+plotshape(stochSellCond ? -1: na, title="stoch sell", style=shape.triangledown, size=size.small, location=location.top, color=color.rgb(252,236,96,75))
+
+//Alert conditions
+
+//base buy condition
+baseBuyCond = stochBuyCond and cciBuyCond
+baseSellCond = stochSellCond and cciSellCond
+
+//buy condition incl atr
+atrAlertBuyCond = baseBuyCond and atrBuyCond
+atrAlertSellCond = baseSellCond and atrSellCond
+
+//alerts 
+buyAlert = useAtr ? atrAlertBuyCond : baseBuyCond
+alertcondition(buyAlert, title="buy alert")
+
+sellAlert = useAtr ? atrAlertSellCond : baseSellCond
+alertcondition(sellAlert, title="sell alert")
+
+//********PLOTS
+
+//plotshape(buyAlert  ? 1 : na, title= "buyski", text="buy", style= shape.arrowup, location=location.belowbar, color=color.green, size=size.large)
+//plotshape(sellAlert ? -1 : na, title="sellski", text="sell", style=shape.arrowdown, location=location.abovebar, color=color.red, size=size.large)
+
+
+
+band1 = hline(300, "Upper Band", color=#787B86, linestyle=hline.style_dashed)
+hline(0, "Middle Band", color=color.new(#787B86, 50))
+band0 = hline(-300, "Lower Band", color=#787B86, linestyle=hline.style_dashed)
+
+
+fill(band1, band0, color=atrBuyCond ? color.rgb(100,167,89,80) : color.rgb(236,95,89,80), title="Background")
+
